@@ -1,9 +1,9 @@
-apiVersion: postgres-operator.crunchydata.com/v1
-kind: PostgresCluster
+apiVersion: keenpg.io/v1beta1
+kind: KeenPostgresCluster
 metadata:
   name: hippo
   annotations:
-    postgres-operator.crunchydata.com/autoCreateUserSchema: "true"
+    keenpg.io/autoCreateUserSchema: "true"
 spec:
   postgresVersion: 18
   users:
