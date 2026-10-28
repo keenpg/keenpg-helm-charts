@@ -1,0 +1,33 @@
+{{- if .Values.rbac.create }}
+{{- $kind := ternary "ClusterRole" "Role" .Values.rbac.clusterWide }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ $kind }}
+metadata:
+  name: {{ .Values.rbac.name }}
+  {{- if not .Values.rbac.clusterWide }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "keenpg-operator.operatorLabels" . | nindent 4 }}
+rules:
+{{- include "keenpg-operator.operatorRules" . | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ $kind }}Binding
+metadata:
+  name: {{ .Values.rbac.name }}
+  {{- if not .Values.rbac.clusterWide }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "keenpg-operator.operatorLabels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: {{ $kind }}
+  name: {{ .Values.rbac.name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "keenpg-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

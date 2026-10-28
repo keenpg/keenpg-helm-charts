@@ -1,0 +1,101 @@
+{{- if .Values.console.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keenpgo-console
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "keenpg-operator.consoleLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "keenpg-operator.consoleSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "keenpg-operator.consoleLabels" . | nindent 8 }}
+      annotations:
+        checksum/db-config: {{ include (print $.Template.BasePath "/console-db/configmap.yaml") . | sha256sum }}
+        {{- with .Values.console.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: keenpgo-console
+      {{- include "keenpg-operator.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: console
+          image: "{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
+          imagePullPolicy: {{ .Values.console.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: keenpgo-console-db
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KEENPGO_OPERATOR_NAME
+              value: {{ include "keenpg-operator.fullname" . | quote }}
+            - name: KEENPGO_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "keenpg-operator.consoleAdminSecret" . }}
+                  key: username
+                  optional: true
+            # Only used to create the first admin user when none exists yet.
+            - name: KEENPGO_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "keenpg-operator.consoleAdminSecret" . }}
+                  key: password
+            {{- if include "keenpg-operator.pullSecretName" . }}
+            # copied into every project and added to the clusters made in the console
+            - name: KEENPG_PULL_SECRET
+              value: {{ include "keenpg-operator.pullSecretName" . | quote }}
+            {{- end }}
+          # the console waits for the Kubernetes API and its database before it serves
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+          {{- with .Values.console.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+      {{- with .Values.console.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.console.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.console.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,160 @@
+# Default values for keenpg-operator.
+
+# -- Override the name of the operator Deployment (default "keenpgo").
+# The console looks the operator up by this name (KEENPGO_OPERATOR_NAME).
+fullnameOverride: ""
+
+# ---------------------------------------------------------------------------
+# Image pull credentials (images are pulled from quay.io/keenpg)
+# ---------------------------------------------------------------------------
+pullSecret:
+  # -- Create the pull Secret from `dockerconfigjson`. Leave false if the
+  # Secret already exists (or the registry is public).
+  create: false
+  # -- Name of an existing pull Secret to use (or to create, see above).
+  # Empty and create=false: no imagePullSecrets are set anywhere.
+  # Empty and create=true: the Secret is called "keenpg-pull".
+  name: ""
+  # -- Contents of a Docker config.json (a JSON string), e.g.
+  #   --set-file pullSecret.dockerconfigjson=$HOME/.config/containers/auth.json
+  dockerconfigjson: ""
+
+# ---------------------------------------------------------------------------
+# Operator
+# ---------------------------------------------------------------------------
+operator:
+  image:
+    repository: quay.io/keenpg/keenpgo
+    tag: v6.0
+    pullPolicy: IfNotPresent
+  replicas: 1
+  # -- Verbose operator logging (KEENPG_DEBUG).
+  debug: false
+  # -- Comma-separated feature gates (KEENPG_FEATURE_GATES).
+  featureGates: ""
+  # -- Name of the leader election Lease.
+  leaseName: cpk-leader-election-lease
+  # -- Extra environment variables for the operator container.
+  extraEnv: []
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  podLabels: {}
+  priorityClassName: ""
+
+serviceAccount:
+  create: true
+  # -- Name of the operator ServiceAccount.
+  name: pgo
+  annotations: {}
+
+rbac:
+  create: true
+  # -- true: ClusterRole/ClusterRoleBinding, the operator manages clusters in
+  # all namespaces. false: Role/RoleBinding and the operator only manages
+  # KeenPGClusters in the release namespace (KEENPG_TARGET_NAMESPACE).
+  clusterWide: true
+  # -- Name of the ClusterRole/Role. Change it when installing the operator
+  # more than once in one cluster (ClusterRole names are cluster-global).
+  name: keenpg-operator
+
+# ---------------------------------------------------------------------------
+# Images the operator starts for the databases it manages (RELATED_IMAGE_*).
+# Key = environment variable suffix, value = full image reference. You can
+# add or override entries; set an entry to "" to drop it.
+# ---------------------------------------------------------------------------
+relatedImages:
+  POSTGRES_15: quay.io/keenpg/keenpg-postgres:ubi9-15.19-6.0
+  POSTGRES_15_GIS_3.3: quay.io/keenpg/keenpg-postgres:ubi9-15.19-3.3-6.0
+  POSTGRES_16: quay.io/keenpg/keenpg-postgres:ubi9-16.15-6.0
+  POSTGRES_16_GIS_3.3: quay.io/keenpg/keenpg-postgres:ubi9-16.15-3.3-6.0
+  POSTGRES_16_GIS_3.4: quay.io/keenpg/keenpg-postgres:ubi9-16.15-3.4-6.0
+  POSTGRES_17: quay.io/keenpg/keenpg-postgres:ubi9-17.11-6.0
+  POSTGRES_17_GIS_3.4: quay.io/keenpg/keenpg-postgres:ubi9-17.11-3.4-6.0
+  POSTGRES_17_GIS_3.5: quay.io/keenpg/keenpg-postgres:ubi9-17.11-3.5-6.0
+  POSTGRES_17_GIS_3.6: quay.io/keenpg/keenpg-postgres:ubi9-17.11-3.6-6.0
+  POSTGRES_18: quay.io/keenpg/keenpg-postgres:ubi9-18.6-6.0
+  POSTGRES_18_GIS_3.6: quay.io/keenpg/keenpg-postgres:ubi9-18.6-3.6-6.0
+  PGBACKREST: quay.io/keenpg/keenpg-pgbackrest:ubi9-2.59.0-6.0
+  PGBOUNCER: quay.io/keenpg/keenpg-pgbouncer:ubi9-1.25-6.0
+  PGEXPORTER: quay.io/keenpg/keenpg-postgres-exporter:ubi9-0.19.1-6.0
+  PGUPGRADE: quay.io/keenpg/keenpg-upgrade:ubi9-18.6-6.0
+  STANDALONE_PGADMIN: quay.io/keenpg/keenpg-pgadmin4:ubi9-9.17-6.0
+  COLLECTOR: quay.io/keenpg/keenpg-collector:ubi9-6.0.3-6.0
+
+# ---------------------------------------------------------------------------
+# Console (web UI) and its PostgreSQL database
+# ---------------------------------------------------------------------------
+console:
+  enabled: true
+  image:
+    repository: quay.io/keenpg/keenpgo-ui
+    tag: v6.0
+    pullPolicy: IfNotPresent
+  admin:
+    # -- First console login. Only used when the console has no admin yet.
+    username: admin
+    # -- Leave empty to generate a random password (kept across upgrades).
+    # Read it with the command printed by `helm status`.
+    password: ""
+    # -- Use an existing Secret (keys "username" and "password") instead.
+    existingSecret: ""
+  service:
+    type: ClusterIP
+    port: 80
+    # -- Only used when type is NodePort (upstream default: 30080).
+    nodePort: null
+    annotations: {}
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: keenpg.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+  # Console database. Names of its Service, ConfigMap, Secret and PVC are
+  # fixed (the console finds them by name), so install one console per namespace.
+  db:
+    image:
+      repository: quay.io/keenpg/keenpg-postgres
+      tag: ubi9-16.15-6.0
+      pullPolicy: IfNotPresent
+    # -- Leave empty to generate a random password. The Secret is kept on
+    # `helm uninstall` (resource-policy: keep) so it still matches the volume.
+    password: ""
+    # -- Use an existing Secret with key "password" instead.
+    existingSecret: ""
+    user: keenpgo
+    database: keenpgo
+    port: 5432
+    maxConnections: 50
+    sslMode: disable
+    auditRetentionDays: 180
+    storage:
+      size: 10Gi
+      # -- Empty = cluster default StorageClass. "-" = no class.
+      storageClassName: ""
+    # -- UID/GID of the postgres user in the image (26 for KeenPG/Crunchy
+    # images, 999 for the official postgres image).
+    runAsUser: 26
+    runAsGroup: 26
+    fsGroup: 26
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { memory: 1Gi }
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}

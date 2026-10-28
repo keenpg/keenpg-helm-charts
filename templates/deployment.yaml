@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "keenpg-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "keenpg-operator.operatorLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.operator.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "keenpg-operator.operatorSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "keenpg-operator.operatorLabels" . | nindent 8 }}
+        {{- with .Values.operator.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.operator.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "keenpg-operator.serviceAccountName" . }}
+      {{- include "keenpg-operator.imagePullSecrets" . | nindent 6 }}
+      {{- with .Values.operator.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: operator
+          image: "{{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag }}"
+          imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
+          env:
+            - name: KEENPG_INSTALLER
+              value: helm
+            - name: KEENPG_INSTALLER_ORIGIN
+              value: keenpg-operator-helm-chart
+            - name: KEENPG_CONTROLLER_LEASE_NAME
+              value: {{ .Values.operator.leaseName | quote }}
+            - name: KEENPG_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KEENPG_DEBUG
+              value: {{ .Values.operator.debug | quote }}
+            - name: KEENPG_FEATURE_GATES
+              value: {{ .Values.operator.featureGates | quote }}
+            {{- if not .Values.rbac.clusterWide }}
+            - name: CPK_TARGET_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: KEENPG_TARGET_NAMESPACE
+              value: "$(CPK_TARGET_NAMESPACE)"
+            {{- end }}
+            {{- range $name, $image := .Values.relatedImages }}
+            {{- if $image }}
+            - name: RELATED_IMAGE_{{ $name }}
+              value: {{ $image | quote }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.operator.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          ports:
+            - containerPort: 8443
+              name: metrics
+          livenessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          {{- with .Values.operator.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.operator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.operator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
