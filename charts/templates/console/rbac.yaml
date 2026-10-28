@@ -1,0 +1,145 @@
+{{- if .Values.console.enabled }}
+---
+# The console acts through this ServiceAccount: it never sees your kubeconfig.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keenpgo-console
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "keenpg-operator.consoleLabels" . | nindent 4 }}
+{{- include "keenpg-operator.imagePullSecrets" . | nindent 0 }}
+{{- if .Values.rbac.create }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: keenpgo-console
+  labels:
+    {{- include "keenpg-operator.consoleLabels" . | nindent 4 }}
+rules:
+  # KeenPGClusters (create, scale, actions, delete)
+  - apiGroups: [keenpg.io]
+    resources: [keenpgclusters, pgupgrades, pgadmins]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # read what the operator builds
+  - apiGroups: [""]
+    resources: [pods, services, persistentvolumeclaims, events, nodes, endpoints]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [get]
+  # patronictl, psql and pgbackrest info run inside the database container
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create]
+  # "Delete pod" button (pods of Postgres clusters only; checked by the console)
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [delete]
+  # user Secrets of clusters, and Secrets a cluster needs (registry logins,
+  # backup credentials, TLS key pairs). The console only deletes Secrets it created.
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, create, update, delete]
+  # projects
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, create, patch, delete]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [get, list]
+  # Migration: the Job that restores a backup of another operator's cluster,
+  # and the volume it restores into
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [create, delete]
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    verbs: [create, delete]
+  # Migration: the pgBackRest configuration of the source cluster
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get]
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets]
+    verbs: [get, list]
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses]
+    verbs: [get, list]
+  # Observability: API server and etcd health checks, node use from metrics-server
+  - nonResourceURLs: [/readyz, /readyz/*, /livez, /livez/*, /healthz, /version, /metrics]
+    verbs: [get]
+  - apiGroups: [metrics.k8s.io]
+    resources: [nodes, pods]
+    verbs: [get, list]
+  # Discovery: read-only look at clusters of other PostgreSQL operators
+  - apiGroups: [postgresql.cnpg.io]
+    resources: [clusters]
+    verbs: [get, list]
+  - apiGroups: [postgres-operator.crunchydata.com]
+    resources: [postgresclusters]
+    verbs: [get, list]
+  - apiGroups: [pgv2.percona.com]
+    resources: [perconapgclusters]
+    verbs: [get, list]
+  - apiGroups: [acid.zalan.do]
+    resources: [postgresqls]
+    verbs: [get, list]
+  - apiGroups: [stackgres.io]
+    resources: [sgclusters]
+    verbs: [get, list]
+  - apiGroups: [kubedb.com]
+    resources: [postgreses]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: keenpgo-console
+  labels:
+    {{- include "keenpg-operator.consoleLabels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: keenpgo-console
+subjects:
+  - kind: ServiceAccount
+    name: keenpgo-console
+    namespace: {{ .Release.Namespace }}
+---
+# console users (when no console database is used) and the console database volume
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keenpgo-console-users
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "keenpg-operator.consoleLabels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [keenpgo-console-users]
+    verbs: [get, update]
+  # Settings > Console storage: grow the console database's volume
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keenpgo-console-users
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "keenpg-operator.consoleLabels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: keenpgo-console-users
+subjects:
+  - kind: ServiceAccount
+    name: keenpgo-console
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}

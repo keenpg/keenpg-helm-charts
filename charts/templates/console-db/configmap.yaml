@@ -1,0 +1,35 @@
+{{- if .Values.console.enabled }}
+# Settings shared by the console database and the console. The names are fixed:
+# the console reads this ConfigMap as "keenpgo-console-db".
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keenpgo-console-db
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "keenpg-operator.consoleDbLabels" . | nindent 4 }}
+data:
+  POSTGRES_USER: {{ .Values.console.db.user | quote }}
+  POSTGRES_DB: {{ .Values.console.db.database | quote }}
+  PGPORT: {{ .Values.console.db.port | quote }}
+  PG_MAX_CONNECTIONS: {{ .Values.console.db.maxConnections | quote }}
+  KEENPGO_DB_HOST: keenpgo-console-db
+  KEENPGO_DB_PORT: {{ .Values.console.db.port | quote }}
+  KEENPGO_DB_NAME: {{ .Values.console.db.database | quote }}
+  KEENPGO_DB_USER: {{ .Values.console.db.user | quote }}
+  KEENPGO_DB_PASSWORD_SECRET: {{ include "keenpg-operator.consoleDbSecret" . | quote }}
+  KEENPGO_DB_SSLMODE: {{ .Values.console.db.sslMode | quote }}
+  KEENPGO_DB_PVC: data-keenpgo-console-db-0
+  KEENPGO_AUDIT_RETENTION_DAYS: {{ .Values.console.db.auditRetentionDays | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keenpgo-console-db-scripts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "keenpg-operator.consoleDbLabels" . | nindent 4 }}
+data:
+  start.sh: |
+    {{- .Files.Get "files/console-db-start.sh" | nindent 4 }}
+{{- end }}

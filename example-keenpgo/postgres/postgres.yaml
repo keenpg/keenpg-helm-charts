@@ -1,0 +1,31 @@
+apiVersion: keenpg.io/v1beta1
+kind: KeenPostgresCluster
+metadata:
+  name: hippo
+  annotations:
+    keenpg.io/autoCreateUserSchema: "true"
+spec:
+  postgresVersion: 18
+  users:
+    - name: hippo
+      databases:
+        - zoo
+  instances:
+    - name: instance1
+      dataVolumeClaimSpec:
+        accessModes:
+        - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: 1Gi
+  backups:
+    pgbackrest:
+      repos:
+      - name: repo1
+        volume:
+          volumeClaimSpec:
+            accessModes:
+            - "ReadWriteOnce"
+            resources:
+              requests:
+                storage: 1Gi

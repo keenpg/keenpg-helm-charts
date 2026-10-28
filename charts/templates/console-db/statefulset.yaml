@@ -1,0 +1,114 @@
+{{- if .Values.console.enabled }}
+# The console database: one PostgreSQL pod with its own volume. It keeps the
+# console's users, sign-in sessions, audit log and settings.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: keenpgo-console-db
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "keenpg-operator.consoleDbLabels" . | nindent 4 }}
+spec:
+  serviceName: keenpgo-console-db
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "keenpg-operator.consoleDbSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "keenpg-operator.consoleDbLabels" . | nindent 8 }}
+      annotations:
+        checksum/scripts: {{ .Files.Get "files/console-db-start.sh" | sha256sum }}
+    spec:
+      {{- include "keenpg-operator.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsUser: {{ .Values.console.db.runAsUser }}
+        runAsGroup: {{ .Values.console.db.runAsGroup }}
+        fsGroup: {{ .Values.console.db.fsGroup }}
+        fsGroupChangePolicy: OnRootMismatch
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      enableServiceLinks: false
+      containers:
+        - name: postgres
+          image: "{{ .Values.console.db.image.repository }}:{{ .Values.console.db.image.tag }}"
+          imagePullPolicy: {{ .Values.console.db.image.pullPolicy }}
+          command: ["/bin/sh", "/scripts/start.sh"]
+          envFrom:
+            - configMapRef:
+                name: keenpgo-console-db
+          env:
+            - name: PGDATA
+              value: /pgdata/data
+            - name: PG_SOCKET_DIR
+              value: /tmp
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "keenpg-operator.consoleDbSecret" . }}
+                  key: password
+          ports:
+            - name: postgres
+              containerPort: {{ .Values.console.db.port }}
+          startupProbe:
+            tcpSocket:
+              port: postgres
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: postgres
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            periodSeconds: 20
+            failureThreshold: 6
+          {{- with .Values.console.db.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /pgdata
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: scripts
+          configMap:
+            name: keenpgo-console-db-scripts
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.console.db.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.console.db.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.console.db.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- if .Values.console.db.storage.storageClassName }}
+        storageClassName: {{ if eq .Values.console.db.storage.storageClassName "-" }}""{{ else }}{{ .Values.console.db.storage.storageClassName }}{{ end }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.console.db.storage.size }}
+{{- end }}

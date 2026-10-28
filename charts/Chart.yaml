@@ -1,0 +1,14 @@
+apiVersion: v2
+appVersion: "6.0"
+description: KeenPG operator for running highly available PostgreSQL (Patroni, pgBackRest,
+  pgBouncer) on Kubernetes, with an optional web console.
+keywords:
+- postgresql
+- postgres
+- operator
+- keenpg
+- database
+kubeVersion: '>=1.25.0-0'
+name: keenpg-operator
+type: application
+version: 6.0.0

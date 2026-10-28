@@ -1,0 +1,26 @@
+KeenPG operator {{ .Chart.AppVersion }} installed as "{{ include "keenpg-operator.fullname" . }}" in namespace {{ .Release.Namespace }}.
+{{- if .Values.rbac.clusterWide }}
+Mode: cluster-wide (manages KeenPGClusters in all namespaces).
+{{- else }}
+Mode: single namespace (manages KeenPGClusters in {{ .Release.Namespace }} only).
+{{- end }}
+
+Check the operator:
+  kubectl -n {{ .Release.Namespace }} get deploy {{ include "keenpg-operator.fullname" . }}
+  kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "keenpg-operator.fullname" . }}
+
+Create a database cluster (see examples/ in the operator repository):
+  kubectl apply -f keenpgcluster.yaml
+
+NOTE: Helm installs the CRDs from crds/ only on first install and never upgrades
+them. After upgrading the chart, apply them yourself:
+  kubectl apply --server-side --force-conflicts -f <chart>/crds/
+{{- if .Values.console.enabled }}
+
+Console:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/keenpgo-console 8080:{{ .Values.console.service.port }}
+  then open http://localhost:8080
+  user:     {{ .Values.console.admin.username }}
+  password: kubectl -n {{ .Release.Namespace }} get secret {{ include "keenpg-operator.consoleAdminSecret" . }} -o jsonpath='{.data.password}' | base64 -d; echo
+  (change it in Settings > Users after the first sign-in)
+{{- end }}
