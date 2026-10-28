@@ -1,5 +1,5 @@
-apiVersion: postgres-operator.crunchydata.com/v1
-kind: PostgresCluster
+apiVersion: keenpg.io/v1beta1
+kind: KeenPostgresCluster
 metadata:
   name: hippo-s3
 spec:
@@ -15,9 +15,9 @@ spec:
     pgbackrest:
       configuration:
       - secret:
-          name: pgo-s3-creds
+          name: keenpgo-s3-creds
       global:
-        repo1-path: /pgbackrest/postgres-operator/hippo-s3/repo1
+        repo1-path: /pgbackrest/keenpgo/hippo-s3/repo1
       repos:
       - name: repo1
         s3:
