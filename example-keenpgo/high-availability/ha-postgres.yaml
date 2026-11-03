@@ -1,7 +1,7 @@
 apiVersion: keenpg.io/v1beta1
 kind: KeenPGCluster
 metadata:
-  name: hippo-ha
+  name: postgres-ha
 spec:
   postgresVersion: 18
   instances:
@@ -21,7 +21,7 @@ spec:
               topologyKey: kubernetes.io/hostname
               labelSelector:
                 matchLabels:
-                  keenpg.io/cluster: hippo-ha
+                  keenpg.io/cluster: postgres-ha
                   keenpg.io/instance-set: pgha1
   backups:
     pgbackrest:
@@ -45,5 +45,5 @@ spec:
               topologyKey: kubernetes.io/hostname
               labelSelector:
                 matchLabels:
-                  keenpg.io/cluster: hippo-ha
+                  keenpg.io/cluster: postgres-ha
                   keenpg.io/role: pgbouncer
