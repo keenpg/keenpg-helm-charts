@@ -81,7 +81,6 @@ relatedImages:
   PGBOUNCER: quay.io/keenpg/keenpg-pgbouncer:ubi9-1.25-6.0
   PGEXPORTER: quay.io/keenpg/keenpg-postgres-exporter:ubi9-0.19.1-6.0
   PGUPGRADE: quay.io/keenpg/keenpg-upgrade:ubi9-18.6-6.0
-  STANDALONE_PGADMIN: quay.io/keenpg/keenpg-pgadmin4:ubi9-9.17-6.0
   COLLECTOR: quay.io/keenpg/keenpg-collector:ubi9-6.0.3-6.0
 
 # ---------------------------------------------------------------------------
