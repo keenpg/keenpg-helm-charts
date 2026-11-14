@@ -31,7 +31,7 @@ operator:
   # -- Verbose operator logging (KEENPG_DEBUG).
   debug: false
   # -- Comma-separated feature gates (KEENPG_FEATURE_GATES).
-  featureGates: ""
+  featureGates: "OpenTelemetryMetrics=true"
   # -- Name of the leader election Lease.
   leaseName: keenpgo-leader-election-lease
   # -- Extra environment variables for the operator container.
