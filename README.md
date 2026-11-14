@@ -14,14 +14,14 @@ This chart is the Helm equivalent of the kustomize targets in `config/`:
 ## Install
 
 ```bash
-helm install keenpg ./keenpg-operator \
+helm install keenpg . \
   --namespace keenpg-operator --create-namespace
 ```
 
 With the web console:
 
 ```bash
-helm install keenpg ./keenpg-operator -n keenpg-operator --create-namespace \
+helm install keenpg . -n keenpg-operator --create-namespace \
   --set console.enabled=true
 ```
 
